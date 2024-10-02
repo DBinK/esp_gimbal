@@ -23,35 +23,39 @@ sta = network.WLAN(network.STA_IF)
 sta.active(True)
 sta.disconnect()  # 因为 ESP8266 会自动连接到最后一个接入点
 
-e = espnow.ESPNow()
-e.active(True)    # 连接广播地址
-e.add_peer(b'\xff\xff\xff\xff\xff\xff')  
+now = espnow.ESPNow()
+now.active(True)    # 连接广播地址
+now.add_peer(b'\xff\xff\xff\xff\xff\xff')  
 
 while True:
-    host, msg = e.recv()
+    time.sleep(0.02)
+    host, msg = now.recv()
     if msg:  # msg == None 如果在 recv() 中超时
-        print(host, msg)
+        print(msg)
 
         # 解析 JSON 消息
         try:
             data = json.loads(msg)  # 将接收到的消息从 JSON 字符串转换为字典
-            v_pwm_l = data.get("l_motor", 0)  # 获取左电机的 PWM 值，默认为0
-            v_pwm_r = data.get("r_motor", 0)  # 获取右电机的 PWM 值，默认为0
-            
-            # 设置 PWM 值
-            in1.duty(v_pwm_l)  # 设置左电机 PWM
-            in3.duty(v_pwm_r)  # 设置右电机 PWM
-            
-            print(f'左电机 PWM 值: {v_pwm_l}, 右电机 PWM 值: {v_pwm_r}')
+
+            lx = data.get("lx", 0)  
+            ly = data.get("ly", 0)  
+
+            rx = data.get("rx", 0)
+            ry = data.get("ry", 0)
         
         except ValueError as e:
-            print(f'解析消息失败: {e}')  # 处理解析错误
-            continue 
+            print(f'解析消息失败: {e}') 
+            continue
+        
+        if abs(lx) > 50 or abs(ly) > 50:
+            print('lx:', lx, 'ly:', ly)
+            servo_x.set_angle_relative(-rx/1000)
+            servo_y.set_angle_relative( ly/1000)
 
-        if msg == b'end':
-            break
     else:
-        # 设置 PWM 值
-        in1.duty(0)  # 设置左电机 PWM
-        in3.duty(0)  # 设置右电机 PWM
         print('No message received')
+
+data = {
+    "lx": 0, "ly": 0, "ls_sw": True,
+    "rx": 0, "ry": 0, "rs_sw": False,
+}

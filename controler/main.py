@@ -48,11 +48,16 @@ def debounce(delay_ns):
 ls_sw = False
 @debounce(100_000_000) 
 def ls_btn_callback(pin):
-    global ls_sw
+    global ls_sw, led_period
     # time.sleep_ms(100)
     if pin.value() == 0:
         ls_sw = not ls_sw
         print(f"开关: {ls_sw}")
+        
+        if led_period == 500_000_000:
+            led_period = 200_000_000
+        else:
+            led_period = 500_000_000
 
 ls_btn = Pin(3, Pin.IN, Pin.PULL_UP)
 ls_btn.irq(ls_btn_callback,Pin.IRQ_FALLING)
@@ -68,19 +73,21 @@ def rs_btn_callback(pin):
         rs_sw = not rs_sw
         print(f"开关: {rs_sw}")
 
+
 rs_btn = Pin(2, Pin.IN, Pin.PULL_UP)
 rs_btn.irq(rs_btn_callback,Pin.IRQ_FALLING)
 
 
 led = Pin(15,Pin.OUT,value=1)
+led_period = 200_000_000 
 
-@debounce(500_000_000)
+@debounce(led_period) 
 def blink_led():
     led.value(not led.value())
 
 def main(tim_callback):
 
-    global ls_sw
+    global ls_sw, led_period
     
     if ls_sw:
         lx_raw  = 8191 - lx.read() - 3050
@@ -90,18 +97,18 @@ def main(tim_callback):
         ry_raw  = 8191 - ry.read() - 3000
 
         data = {
-            "lx_raw": lx_raw, "ly_raw": ly_raw, "ls_sw": ls_sw,
-            "rx_raw": rx_raw, "ry_raw": ry_raw, "rs_sw": rs_sw,
+            "lx": lx_raw, "ly": ly_raw, "ls": ls_sw,
+            "rx": rx_raw, "ry": ry_raw, "rs": rs_sw,
         }
 
     else:
         data = {
-            "lx_raw": 0, "ly_raw": 0, "ls_sw": ls_sw,
-            "rx_raw": 0, "ry_raw": 0, "rs_sw": rs_sw,
+            "lx": 0, "ly": 0, "ls": ls_sw,
+            "rx": 0, "ry": 0, "rs": rs_sw,
         }
 
-    data_json = json.dumps(data)
-    now.send(peer, data_json)  # 将数据转换为 JSON 字符串并发送
+    data_json = json.dumps(data) # 将数据转换为 JSON 字符串并发送
+    now.send(peer, data_json)  
     print(f"发送数据: {data_json}")
 
     blink_led()
