@@ -1,0 +1,111 @@
+import json  # 导入ujson库，用于处理JSON格式
+import network
+import espnow
+from machine import Pin, ADC, Timer
+import time
+
+# 初始化 wifi
+sta = network.WLAN(network.STA_IF)  # 或者使用 network.AP_IF
+sta.active(True)
+sta.disconnect()      # 对于 ESP8266
+
+# 初始化 espnow
+now = espnow.ESPNow()
+now.active(True)
+peer = b'\xff\xff\xff\xff\xff\xff'  # 使用广播地址
+now.add_peer(peer)      
+# now.send(peer, "Starting...")
+
+# 初始化 adc 摇杆输入
+lx = ADC(Pin(5)) 
+lx.atten(ADC.ATTN_11DB)  # 开启衰减器，测量量程增大到3.3V 
+ly = ADC(Pin(7)) 
+ly.atten(ADC.ATTN_11DB)  # 开启衰减器，测量量程增大到3.3V 
+
+rx = ADC(Pin(4))
+rx.atten(ADC.ATTN_11DB)
+ry = ADC(Pin(6))
+ry.atten(ADC.ATTN_11DB)
+
+
+def debounce(delay_ns):
+    """装饰器: 防止函数在指定时间内被重复调用"""
+    def decorator(func):
+        last_call_time = 0
+        result = None
+
+        def wrapper(*args, **kwargs):
+            nonlocal last_call_time, result
+            current_time = time.time_ns()
+            if current_time - last_call_time > delay_ns:
+                last_call_time = current_time
+                result = func(*args, **kwargs)
+            return result
+        return wrapper
+    return decorator
+
+# 初始化 开关
+ls_sw = False
+@debounce(100_000_000) 
+def ls_btn_callback(pin):
+    global ls_sw
+    # time.sleep_ms(100)
+    if pin.value() == 0:
+        ls_sw = not ls_sw
+        print(f"开关: {ls_sw}")
+
+ls_btn = Pin(3, Pin.IN, Pin.PULL_UP)
+ls_btn.irq(ls_btn_callback,Pin.IRQ_FALLING)
+
+
+# 初始化 开关
+rs_sw = False
+@debounce(100_000_000) 
+def rs_btn_callback(pin):
+    global rs_sw
+    # time.sleep_ms(100)
+    if pin.value() == 0:
+        rs_sw = not rs_sw
+        print(f"开关: {rs_sw}")
+
+rs_btn = Pin(2, Pin.IN, Pin.PULL_UP)
+rs_btn.irq(rs_btn_callback,Pin.IRQ_FALLING)
+
+
+led = Pin(15,Pin.OUT,value=1)
+
+@debounce(500_000_000)
+def blink_led():
+    led.value(not led.value())
+
+def main(tim_callback):
+
+    global ls_sw
+    
+    if ls_sw:
+        lx_raw  = 8191 - lx.read() - 3050
+        ly_raw  = 8191 - ly.read() - 3080
+
+        rx_raw  = 8191 - rx.read() - 3160
+        ry_raw  = 8191 - ry.read() - 3000
+
+        data = {
+            "lx_raw": lx_raw, "ly_raw": ly_raw, "ls_sw": ls_sw,
+            "rx_raw": rx_raw, "ry_raw": ry_raw, "rs_sw": rs_sw,
+        }
+
+    else:
+        data = {
+            "lx_raw": 0, "ly_raw": 0, "ls_sw": ls_sw,
+            "rx_raw": 0, "ry_raw": 0, "rs_sw": rs_sw,
+        }
+
+    data_json = json.dumps(data)
+    now.send(peer, data_json)  # 将数据转换为 JSON 字符串并发送
+    print(f"发送数据: {data_json}")
+
+    blink_led()
+    
+# 开启定时器
+tim = Timer(1)
+tim.init(period=20, mode=Timer.PERIODIC, callback=main)

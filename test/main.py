@@ -1,31 +1,27 @@
 import time
+import network
+import espnow
 import json 
 
-import espnow
-import network
-from machine import UART
+from machine import Pin, PWM  # type: ignore
 
-from servo import Servo
+# 初始化 PWM 引脚
+in1 = PWM(Pin(5, Pin.OUT), freq=100000, duty=0)
+in2 = Pin(6, Pin.OUT, value=0)
 
-# 创建串口对象
-uart = UART(1, 115200, rx=21, tx=20)  # 设置串口号1和波特率
-uart.write("Hello Gimbal!")  # 发送一条数据
+in3 = PWM(Pin(9, Pin.OUT), freq=100000, duty=0)
+in4 = Pin(10, Pin.OUT, value=0) 
 
-# 创建舵机对象
-servo_x = Servo(5)
-servo_x.set_limit(30,150)
-
-servo_y = Servo(6)
-servo_y.set_limit(60,120)
-
-# 初始化 WiFi 和 espnow
+# A WLAN interface must be active to send()/recv()
 sta = network.WLAN(network.STA_IF)
 sta.active(True)
 sta.disconnect()  # 因为 ESP8266 会自动连接到最后一个接入点
 
 e = espnow.ESPNow()
-e.active(True)    # 连接广播地址
-e.add_peer(b'\xff\xff\xff\xff\xff\xff')  
+e.active(True)
+
+peer = b'\xff\xff\xff\xff\xff\xff'  # 同伴的 WiFi 接口的 MAC 地址
+e.add_peer(peer)  
 
 while True:
     host, msg = e.recv()
