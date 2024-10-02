@@ -108,4 +108,4 @@ def main(tim_callback):
 
 # 开启定时器
 tim = Timer(1)
-tim.init(period=20, mode=Timer.PERIODIC, callback=main)
+tim.init(period=10, mode=Timer.PERIODIC, callback=main)
