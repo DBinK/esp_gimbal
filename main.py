@@ -8,7 +8,7 @@ from machine import UART, Pin
 
 from servo import Servo
 
-led = Pin(8, Pin.OUT, value=0)
+led = Pin(8, Pin.OUT, value=1)
 
 # 创建串口对象
 uart = UART(1, 115200, rx=21, tx=20)  # 设置串口号1和波特率
@@ -55,12 +55,14 @@ def read_uart():
         print(header)
         if header and header[0] == 0x5A:  # 检查数据头
             data = uart.read(16)  # 读取16字节数据
-            print(data)
+            # print(data)
             if len(data) == 16:
-                # 解包数据
-                packet = struct.unpack("<BfffH", header + data)
+                packet = struct.unpack("<BfffH", header + data) # 解包数据
                 header, yaw, pitch, deep, checksum = packet
                 print(f"接收到的数据: yaw={yaw}, pitch={pitch}, deep={deep}, checksum={checksum}")
+
+                led.value(not led.value()) # 闪烁led
+
                 return yaw, pitch, deep
             else:
                 print("接收到的数据长度不匹配")
@@ -83,6 +85,7 @@ def read_espnow():
             # 检查lx, ly, rx, ry中是否至少有一个绝对值超过40
             stick_work = any(abs(value) > 40 for value in [lx, ly, rx, ry])
             if stick_work:
+                led.value(not led.value()) # 闪烁led
                 return lx, ly, rx, ry
             else:
                 print('No valid data received')
@@ -110,8 +113,7 @@ while True:
         servo_x.set_angle_relative(limit_value(-rx) / 450)  # 灵敏度
         servo_y.set_angle_relative(limit_value(ry)  / 450)
 
-    # 切换LED的状态
-    led.value(not led.value())
+    led.value(1) # 关闭闪烁led
 
     diff = time_diff()
     print(f"延迟us: {diff}, 频率Hz: {1_000_000 / diff}")
