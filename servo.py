@@ -37,7 +37,7 @@ class Servo:
 
     def set_angle(self, targe_angle):  # 绝对角度运动
 
-        print(f"set_angle(): 传入舵机 {self.pin} 目标角度: {targe_angle}")
+        # print(f"set_angle(): 传入舵机 {self.pin} 目标角度: {targe_angle}")
 
         targe_angle = min(max(targe_angle, self.limit_min_angle), self.limit_max_angle) # 限制角度
 
@@ -55,106 +55,14 @@ class Servo:
         self.targe_angle += relative_angle
         self.set_angle(self.targe_angle)
 
-    def step(self, step=1):  # 以最小精度步进N步
+    def set_step(self, step=1):  # 以最小精度步进N步
         self.set_angle_relative(self.min_accu * step)
         
     def reset(self):  # 复位
         self.set_angle(90)
 
-    def deinit(self):  # 注销舵机PWM
-        self.pwm.deinit()
-
-    def test_45(self):
-        print("\n45 度角转动测试\n")
-        self.set_angle(0)
-        time.sleep(1)
-        self.set_angle(45)
-        time.sleep(1)
-        self.set_angle(90)
-        time.sleep(1)
-        self.set_angle(135)
-        time.sleep(1)
-        self.set_angle(180)
-        time.sleep(1)
-
-    def test_0_180(self):
-        print("\n0-180 度角转动测试\n")
-        for i in range(0, 180, 1):
-            self.set_angle(i)
-            time.sleep(0.01)
-
-        for i in range(180, 0, -1):
-            self.set_angle(i)
-            time.sleep(0.01)
-
-    def test_relative(self):
-        print("\n相对角度转动测试\n")
-        self.set_angle_relative(90)
-        time.sleep(1)
-        self.set_angle_relative(-45)
-        time.sleep(1)
-        self.set_angle_relative(-900)
-        time.sleep(1)
-
-    def test_step(self):
-        print("\n步进转动测试\n")
-        for i in range(0, 30):
-            self.step(1)
-            time.sleep(0.1)
-
-    def test_scan(self):
-
-        points = []
-
-        def fun(KEY):
-            points.append(int(self.targe_angle))
-            print(f"在 self.targe_angle 检测到 {points}")
-
-        KEY = Pin(6, Pin.IN, Pin.PULL_UP)  # 构建KEY对象
-        KEY.irq(fun, Pin.IRQ_FALLING or Pin.IRQ_RISING)  # 定义中断，下降沿触发
-
-        cnt = 0
-        while cnt < 50:
-            self.step(-3)
-            time.sleep(0.01)
-            # print(self.targe_angle)
-            cnt += 1
-
-        while True:
-
-            cnt = 0
-            while cnt < 100:
-                self.step(3)
-                time.sleep(0.01)
-                # print(self.targe_angle)
-                cnt += 1
-
-                print(points)
-
-            cnt = 0
-            while cnt < 100:
-                self.step(-3)
-                time.sleep(0.01)
-                # print(self.targe_angle)
-                cnt += 1
-
-                print(points)
-
 
 if __name__ == "__main__":
-
-    # servo_x = Servo(47)
-    # servo_x.test_relative()
-    # servo_x.test_step()
-
     servo_y = Servo(5)
-    # servo_y.test_relative()
-    # servo_y.test_step()
-
-    time.sleep(1)
-
-    servo_y.test_scan()
-
-    time.sleep(1)
-
     servo_y.set_angle(90)
+    time.sleep(1)
