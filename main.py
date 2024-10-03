@@ -4,7 +4,7 @@ import json
 
 import espnow
 import network
-from machine import UART, Pin
+from machine import UART, Pin, Timer
 
 from servo import Servo
 
@@ -99,27 +99,41 @@ def read_espnow():
         print('No message received')
         return 0, 0, 0, 0
 
+sw = True
+def stop_btn_callback(pin):
+    global sw
+    time.sleep(0.1)
+    if pin.value() == 0:
+        sw = not sw
+        led.value(not led.value())
+        print("停止定时器")  # 不然Thonny无法停止程序
+
+stop_btn = Pin(9, Pin.IN, Pin.PULL_UP)
+stop_btn.irq(stop_btn_callback, Pin.IRQ_FALLING)
+
+
 while True:
-    time.sleep(0.000_1)
-    
-    yaw, pitch, deep = read_uart()
+    if sw:
+        time.sleep(0.1)
+        yaw, pitch, deep = read_uart()
 
-    if yaw != 0 or pitch != 0 or deep != 0:
-        servo_x.set_angle(yaw   * 0.1)  # 灵敏度
-        servo_y.set_angle(pitch * 0.1)
+        if yaw != 0 or pitch != 0 or deep != 0:
+            servo_x.set_angle(yaw   * 0.1)  # 灵敏度
+            servo_y.set_angle(pitch * 0.1)
 
-    else:
-        lx, ly, rx, ry = read_espnow()
-        servo_x.set_angle_relative(limit_value(-rx) / 450)  # 灵敏度
-        servo_y.set_angle_relative(limit_value(ry)  / 450)
+        else:
+            lx, ly, rx, ry = read_espnow()
+            servo_x.set_angle_relative(limit_value(-rx) / 450)  # 灵敏度
+            servo_y.set_angle_relative(limit_value(ry)  / 450)
 
-    led.value(1) # 关闭闪烁led
+        led.value(1) # 关闭闪烁led
 
-    diff = time_diff()
-    print(f"延迟us: {diff}, 频率Hz: {1_000_000 / diff}")
+        diff = time_diff()
+        print(f"延迟us: {diff}, 频率Hz: {1_000_000 / diff}")
+
 
 # 数据格式
-data = {
+data_now = {
     "lx": 0, "ly": 0, "ls_sw": True,
     "rx": 0, "ry": 0, "rs_sw": False,
 }
