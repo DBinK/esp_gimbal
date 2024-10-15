@@ -1,4 +1,4 @@
-import uasyncio as asyncio
+import asyncio
 from machine import UART, Pin
 import struct
 
@@ -46,16 +46,14 @@ def process_data(data):
     checksum = crc16(packet) & 0xFFFF  # 取低16位作为校验和
 
     # 校验和验证
-    # if received_checksum == checksum:
-    if True:
-        print("\n头部:", header.hex())
-        print("航向角:", yaw)
-        print("俯仰角:", pitch)
-        print("深度:", deep)
-        print("收到的校验和:", received_checksum)
-        print("计算的校验和:", checksum)
+    if received_checksum == checksum:
+        print(f"\n头部: {hex(header)}, 航向角: {yaw}, 俯仰角: {pitch}, 深度: {deep}")
+    # if True:
+    #      print(f"\n头部: {header.hex()}, 航向角: {yaw}, 俯仰角: {pitch}, 深度: {deep}, 收到的校验和: {received_checksum}, 计算的校验和: {checksum}")
     else:
-        print("校验和错误，丢弃数据")
+        print(f"校验和错误，丢弃数据: {data.hex()}")
+
+    
 
 async def main():
     await asyncio.gather(

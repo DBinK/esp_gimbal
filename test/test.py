@@ -17,8 +17,8 @@ def crc16(data: bytes) -> int:
 
 # 生成示例消息
 header = 0x5A
-yaw = 1.2    # 示例航向角
-pitch = 2.3  # 示例俯仰角
+yaw = -100.2    # 示例航向角
+pitch = -200.3  # 示例俯仰角
 deep = 3.4   # 示例深度
 
 # 打包数据
