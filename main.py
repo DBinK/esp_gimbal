@@ -124,23 +124,26 @@ def process_uart_data(data):
         return
 
     # 解包数据
-    header, yaw, pitch, deep = struct.unpack(HEADER_FORMAT, data[:13])
-    received_checksum = struct.unpack(CHECKSUM_FORMAT, data[13:])[0]
+    try:
+        header, yaw, pitch, deep = struct.unpack(HEADER_FORMAT, data[:13])
+        received_checksum = struct.unpack(CHECKSUM_FORMAT, data[13:])[0]
 
-    # 计算校验和
-    packet = data[:13]  # 包含头部和浮点数部分
-    checksum = crc16(packet) & 0xFFFF  # 取低16位作为校验和
+        # 计算校验和
+        packet = data[:13]  # 包含头部和浮点数部分
+        checksum = crc16(packet) & 0xFFFF  # 取低16位作为校验和
 
-    # 校验和验证
-    if received_checksum == checksum:
-        print(f"\n头部: {hex(header)}, 航向角: {yaw}, 俯仰角: {pitch}, 深度: {deep}")
-    else:
-        print(f"校验和错误，丢弃数据: {data.hex()}")
+        # 校验和验证
+        if received_checksum == checksum:
+            print(f"\n头部: {hex(header)}, 航向角: {yaw}, 俯仰角: {pitch}, 深度: {deep}")
+        else:
+            print(f"校验和错误，丢弃数据: {data.hex()}")
 
-    if yaw != 0 or pitch != 0 or deep != 0:
-        print(f"接收到串口数据: yaw={yaw}, pitch={pitch}, deep={deep}")
-        servo_x.set_angle_relative(yaw * 0.1)  # 灵敏度
-        servo_y.set_angle_relative(-pitch * 0.1)
+        if yaw != 0 or pitch != 0 or deep != 0:
+            print(f"接收到串口数据: yaw={yaw}, pitch={pitch}, deep={deep}")
+            servo_x.set_angle_relative(yaw * 0.1)  # 灵敏度
+            servo_y.set_angle_relative(-pitch * 0.1)
+    except Exception as e:
+        print(f"解包数据时出错: {e}")
 
 async def main():
     await asyncio.gather(
