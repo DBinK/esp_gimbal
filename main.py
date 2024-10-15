@@ -36,36 +36,7 @@ now = espnow.ESPNow()
 now.active(True)    # 连接广播地址
 now.add_peer(b'\xff\xff\xff\xff\xff\xff')  
 
-def read_espnow():
-    """读取espnow数据并进行解包处理"""
-    host, msg = now.recv()
-    if msg:
-        try:
-            data = json.loads(msg)  # 将接收到的消息从 JSON 字符串转换为字典
-            # print(data)
 
-            lx = data.get("lx", 0)
-            ly = data.get("ly", 0)
-            rx = data.get("rx", 0)
-            ry = data.get("ry", 0)
-
-            # 检查lx, ly, rx, ry中是否至少有一个绝对值超过40
-            stick_work = any(abs(value) > 40 for value in [lx, ly, rx, ry])
-            if stick_work:
-                led.value(not led.value()) # 闪烁led
-                return lx, ly, rx, ry
-            else:
-                print('No valid data received')
-                return 0, 0, 0, 0
-
-        except ValueError as e:
-            print(f'解析消息失败: {e}')
-            return 0, 0, 0, 0
-
-    else:
-        print('No message received')
-        return 0, 0, 0, 0
-    
 sw = True
 def stop_btn_callback(pin):
     global sw
@@ -110,12 +81,45 @@ def crc16(data: bytes) -> int:
                 crc >>= 1  # 右移
     return crc
 
+async def read_espnow():
+    """读取espnow数据并进行解包处理"""
+    while True:
+        host, msg = now.recv() # 读取所有可用的数据
+        process_espnow_data(msg)  # 处理接收到的数据
+        await asyncio.sleep(0.001)  # 等待一段时间再检查
+    
+def process_espnow_data(msg):
+    if msg:
+        try:
+            data = json.loads(msg)  # 将接收到的消息从 JSON 字符串转换为字典
+            # print(data)
+
+            lx = data.get("lx", 0)
+            ly = data.get("ly", 0)
+            rx = data.get("rx", 0)
+            ry = data.get("ry", 0)
+
+            # 检查lx, ly, rx, ry中是否至少有一个绝对值超过40
+            stick_work = any(abs(value) > 40 for value in [lx, ly, rx, ry])
+            if stick_work:
+                led.value(not led.value()) # 闪烁led
+                if lx != 0 or ly != 0 or rx != 0 or ry != 0:
+                    print(f"接收到espnow数据: lx={lx}, ly={ly}, rx={rx}, ry={ry}")
+                    servo_x.set_angle_relative(limit_value(-rx) / 450)  # 灵敏度
+                    servo_y.set_angle_relative(limit_value(ry)  / 450)
+  
+        except ValueError as e:
+            print(f'解析消息失败: {e}')
+    else:
+        print('No message received')
+
+
 async def read_uart():
     while True:
         if uart.any():  # 检查是否有可读数据
             data = uart.read(uart.any())  # 读取所有可用的数据
             process_uart_data(data)  # 处理接收到的数据
-        await asyncio.sleep(0.1)  # 等待一段时间再检查
+        await asyncio.sleep(0.001)  # 等待一段时间再检查
 
 def process_uart_data(data):
     # 检查数据长度
