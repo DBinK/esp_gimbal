@@ -8,6 +8,8 @@ from machine import UART, Pin
 
 from servo import Servo
 
+time.sleep(1)  # 防止点停止按钮后马上再启动导致 Thonny 连接不上
+
 # 定义数据包结构
 HEADER_FORMAT = "<Bfff"  # 数据格式：B表示一个字节，fff表示三个浮点数
 CHECKSUM_FORMAT = "<H"    # 校验和格式：H表示一个无符号短整数
@@ -81,6 +83,7 @@ def crc16(data: bytes) -> int:
 async def read_espnow():
     """读取espnow数据并进行解包处理"""
     while True:
+        print("正在读取espnow数据...")
         host, msg = now.recv()  # 读取所有可用的数据
         process_espnow_data(msg)  # 处理接收到的数据
         await asyncio.sleep(0.001)  # 等待一段时间再检查
@@ -102,8 +105,8 @@ def process_espnow_data(msg):
                 led.value(not led.value())  # 闪烁led
                 if lx != 0 or ly != 0 or rx != 0 or ry != 0:
                     print(f"接收到espnow数据: lx={lx}, ly={ly}, rx={rx}, ry={ry}")
-                    servo_x.set_angle_relative(limit_value(-rx) / 450)  # 灵敏度
-                    servo_y.set_angle_relative(limit_value(ry) / 450)
+                    servo_x.set_angle_relative(limit_value(-rx) / 300)  # 灵敏度
+                    servo_y.set_angle_relative(limit_value(-ry) / 300)
 
         except ValueError as e:
             print(f'解析消息失败: {e}')
@@ -112,6 +115,7 @@ def process_espnow_data(msg):
 
 async def read_uart():
     while True:
+        print("正在读取串口数据...")
         if uart.any():  # 检查是否有可读数据
             data = uart.read(uart.any())  # 读取所有可用的数据
             process_uart_data(data)  # 处理接收到的数据
@@ -133,15 +137,17 @@ def process_uart_data(data):
         checksum = crc16(packet) & 0xFFFF  # 取低16位作为校验和
 
         # 校验和验证
-        if received_checksum == checksum:
+        # if received_checksum == checksum:
+        if True: # 临时测试跳过校验
             print(f"\n头部: {hex(header)}, 航向角: {yaw}, 俯仰角: {pitch}, 深度: {deep}")
         else:
             print(f"校验和错误，丢弃数据: {data.hex()}")
 
         if yaw != 0 or pitch != 0 or deep != 0:
             print(f"接收到串口数据: yaw={yaw}, pitch={pitch}, deep={deep}")
-            servo_x.set_angle_relative(yaw * 0.1)  # 灵敏度
-            servo_y.set_angle_relative(-pitch * 0.1)
+            servo_x.set_angle_relative(-yaw * 0.4)  # 灵敏度
+            servo_y.set_angle_relative(-pitch * 0.1 *0)
+
     except Exception as e:
         print(f"解包数据时出错: {e}")
 
