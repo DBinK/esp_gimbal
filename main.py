@@ -1,11 +1,10 @@
 import struct
 import time
-import json 
-import asyncio # type: ignore
-
-import espnow # type: ignore
+import json
+import asyncio
+import espnow
 import network
-from machine import UART, Pin # type: ignore
+from machine import UART, Pin
 
 from servo import Servo
 
@@ -22,10 +21,10 @@ uart.write("Hello Gimbal!")  # 发送一条数据
 
 # 创建舵机对象
 servo_x = Servo(5)
-servo_x.set_limit(30,150)
+servo_x.set_limit(30, 150)
 
 servo_y = Servo(6)
-servo_y.set_limit(60,120)
+servo_y.set_limit(60, 120)
 
 # 初始化 WiFi 和 espnow
 sta = network.WLAN(network.STA_IF)
@@ -34,8 +33,7 @@ sta.disconnect()  # 因为 ESP8266 会自动连接到最后一个接入点
 
 now = espnow.ESPNow()
 now.active(True)    # 连接广播地址
-now.add_peer(b'\xff\xff\xff\xff\xff\xff')  
-
+now.add_peer(b'\xff\xff\xff\xff\xff\xff')
 
 sw = True
 def stop_btn_callback(pin):
@@ -49,7 +47,7 @@ def stop_btn_callback(pin):
 stop_btn = Pin(9, Pin.IN, Pin.PULL_UP)
 stop_btn.irq(stop_btn_callback, Pin.IRQ_FALLING)
 
-def limit_value(value, min_value=-3000 , max_value=3000):
+def limit_value(value, min_value=-3000, max_value=3000):
     """限制输入的值在给定的范围内。"""
     return min(max(value, min_value), max_value)
 
@@ -57,15 +55,14 @@ def time_diff(last_time=[None]):
     """计算两次调用之间的时间差，单位为微秒。"""
     current_time = time.ticks_us()  # 获取当前时间（单位：微秒）
 
-    if last_time[0] is None: # 如果是第一次调用，更新last_time
+    if last_time[0] is None:  # 如果是第一次调用，更新last_time
         last_time[0] = current_time
-        return 0.000_001 # 防止除零错误
+        return 0.000_001  # 防止除零错误
     
-    else: # 计算时间差
+    else:  # 计算时间差
         diff = time.ticks_diff(current_time, last_time[0])  # 计算时间差
         last_time[0] = current_time  # 更新上次调用时间
         return diff  # 返回时间差us
-
 
 # 计算CRC16校验和
 def crc16(data: bytes) -> int:
@@ -84,10 +81,10 @@ def crc16(data: bytes) -> int:
 async def read_espnow():
     """读取espnow数据并进行解包处理"""
     while True:
-        host, msg = now.recv() # 读取所有可用的数据
+        host, msg = now.recv()  # 读取所有可用的数据
         process_espnow_data(msg)  # 处理接收到的数据
         await asyncio.sleep(0.001)  # 等待一段时间再检查
-    
+
 def process_espnow_data(msg):
     if msg:
         try:
@@ -102,17 +99,16 @@ def process_espnow_data(msg):
             # 检查lx, ly, rx, ry中是否至少有一个绝对值超过40
             stick_work = any(abs(value) > 40 for value in [lx, ly, rx, ry])
             if stick_work:
-                led.value(not led.value()) # 闪烁led
+                led.value(not led.value())  # 闪烁led
                 if lx != 0 or ly != 0 or rx != 0 or ry != 0:
                     print(f"接收到espnow数据: lx={lx}, ly={ly}, rx={rx}, ry={ry}")
                     servo_x.set_angle_relative(limit_value(-rx) / 450)  # 灵敏度
-                    servo_y.set_angle_relative(limit_value(ry)  / 450)
-  
+                    servo_y.set_angle_relative(limit_value(ry) / 450)
+
         except ValueError as e:
             print(f'解析消息失败: {e}')
     else:
         print('No message received')
-
 
 async def read_uart():
     while True:
@@ -138,47 +134,22 @@ def process_uart_data(data):
     # 校验和验证
     if received_checksum == checksum:
         print(f"\n头部: {hex(header)}, 航向角: {yaw}, 俯仰角: {pitch}, 深度: {deep}")
-    # if True:
-    #      print(f"\n头部: {header.hex()}, 航向角: {yaw}, 俯仰角: {pitch}, 深度: {deep}, 收到的校验和: {received_checksum}, 计算的校验和: {checksum}")
     else:
         print(f"校验和错误，丢弃数据: {data.hex()}")
 
     if yaw != 0 or pitch != 0 or deep != 0:
         print(f"接收到串口数据: yaw={yaw}, pitch={pitch}, deep={deep}")
-        servo_x.set_angle_relative(yaw   * 0.1)  # 灵敏度
+        servo_x.set_angle_relative(yaw * 0.1)  # 灵敏度
         servo_y.set_angle_relative(-pitch * 0.1)
 
 async def main():
     await asyncio.gather(
-        read_uart(),  # 启动读取 UART 的任务
+        read_uart(),   # 启动读取 UART 的任务
+        read_espnow(), # 启动读取 espnow 的任务
     )
 
 # 运行主协程
 asyncio.run(main())
-
-# while True:
-#     if sw:
-#         time.sleep(0.01)
-
-#         yaw, pitch, deep = read_uart()
-
-#         if yaw != 0 or pitch != 0 or deep != 0:
-#             print(f"接收到串口数据: yaw={yaw}, pitch={pitch}, deep={deep}")
-#             servo_x.set_angle_relative(yaw   * 0.1)  # 灵敏度
-#             servo_y.set_angle_relative(-pitch * 0.1)
-
-#         else:
-#             lx, ly, rx, ry = read_espnow()
-#             if lx != 0 or ly != 0 or rx != 0 or ry != 0:
-#                 print(f"接收到espnow数据: lx={lx}, ly={ly}, rx={rx}, ry={ry}")
-#             servo_x.set_angle_relative(limit_value(-rx) / 450)  # 灵敏度
-#             servo_y.set_angle_relative(limit_value(ry)  / 450)
-
-#         led.value(1) # 关闭闪烁led
-
-#         diff = time_diff()
-#         #print(f"延迟us: {diff}, 频率Hz: {1_000_000 / diff}")
-
 
 # 数据格式
 data_now = {
