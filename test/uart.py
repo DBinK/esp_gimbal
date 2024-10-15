@@ -75,4 +75,4 @@ while True:
     except KeyboardInterrupt:
         print("停止接收数据")
 
-    time.sleep(0.1)
+    time.sleep(0.01)

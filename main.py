@@ -55,7 +55,7 @@ def read_uart():
         print(header)
         if header and header[0] == 0x5A:  # 检查数据头
             data = uart.read(16)  # 读取16字节数据
-            # print(data)
+            print(data)
             if len(data) == 16:
                 packet = struct.unpack("<BfffH", header + data) # 解包数据
                 header, yaw, pitch, deep, checksum = packet
@@ -64,8 +64,8 @@ def read_uart():
                 led.value(not led.value()) # 闪烁led
 
                 return yaw, pitch, deep
-            else:
-                print("接收到的数据长度不匹配")
+            # else:
+            #     print("接收到的数据长度不匹配")
 
     return 0,0,0
 
@@ -112,24 +112,29 @@ stop_btn = Pin(9, Pin.IN, Pin.PULL_UP)
 stop_btn.irq(stop_btn_callback, Pin.IRQ_FALLING)
 
 
+
 while True:
     if sw:
-        time.sleep(0.1)
+        time.sleep(0.01)
+
         yaw, pitch, deep = read_uart()
 
         if yaw != 0 or pitch != 0 or deep != 0:
-            servo_x.set_angle(yaw   * 0.1)  # 灵敏度
-            servo_y.set_angle(pitch * 0.1)
+            print(f"接收到串口数据: yaw={yaw}, pitch={pitch}, deep={deep}")
+            servo_x.set_angle_relative(yaw   * 0.1)  # 灵敏度
+            servo_y.set_angle_relative(-pitch * 0.1)
 
         else:
             lx, ly, rx, ry = read_espnow()
+            if lx != 0 or ly != 0 or rx != 0 or ry != 0:
+                print(f"接收到espnow数据: lx={lx}, ly={ly}, rx={rx}, ry={ry}")
             servo_x.set_angle_relative(limit_value(-rx) / 450)  # 灵敏度
             servo_y.set_angle_relative(limit_value(ry)  / 450)
 
         led.value(1) # 关闭闪烁led
 
         diff = time_diff()
-        print(f"延迟us: {diff}, 频率Hz: {1_000_000 / diff}")
+        #print(f"延迟us: {diff}, 频率Hz: {1_000_000 / diff}")
 
 
 # 数据格式

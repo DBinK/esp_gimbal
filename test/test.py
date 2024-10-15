@@ -1,59 +1,48 @@
-'''
-实验名称：串口通信
-版本：v1.0
-作者：WalnutPi
-实验平台：核桃派PicoW
-说明：通过编程实现串口通信，跟电脑串口助手实现数据收发。
-'''
+import struct
+import zlib
 
-#导入串口模块
-from machine import UART, Pin, SoftI2C
-import mpu6050,time,math
+# 计算CRC16校验和
+def crc16(data: bytes) -> int:
+    """计算CRC16校验和"""
+    crc = 0xFFFF  # 初始化CRC值
+    for byte in data:
+        crc ^= byte  # 异或操作
+        for _ in range(8):  # 对每个字节进行8次处理
+            if crc & 0x0001:  # 检查最低位
+                crc >>= 1  # 右移
+                crc ^= 0xA001  # 进行多项式异或
+            else:
+                crc >>= 1  # 右移
+    return crc
 
+# 生成示例消息
+header = 0x5A
+yaw = 1.2    # 示例航向角
+pitch = 2.3  # 示例俯仰角
+deep = 3.4   # 示例深度
 
-uart=UART(1,115200,rx=42,tx=41) #设置串口号1和波特率
+# 打包数据
+packet = struct.pack(
+    "<Bfff",  # 数据格式：B表示一个字节，fff表示三个浮点数
+    header,
+    yaw,
+    pitch,
+    deep,
+)
 
-uart.write('Hello 01Studio!')#发送一条数据
+# 计算校验和
+checksum = crc16(packet) & 0xFFFF  # 取低16位作为校验和
+packet_with_checksum = packet + struct.pack("<H", checksum)
 
-LED=Pin(4,Pin.OUT) #构建led对象，GPIO46,输出
-LED.value(1) #点亮LED，也可以使用led.on()
+# 打印打包后的数据
+print("打包后的数据:", packet_with_checksum)
 
-time.sleep(1)
-    
-#构建I2C对象
-i2c1 = SoftI2C(scl=Pin(2), sda=Pin(1))
+# 将打包后的数据转换为十六进制格式
+hex_representation = packet_with_checksum.hex() # .upper()
 
-#构建MPU6050对象
-mpu  = mpu6050.accel(i2c1)
+# 打印打包后的数据的十六进制表示
+print("打包后的数据（十六进制格式）:", hex_representation)
 
-fix_yaw_offset = 0 
-yaw = 0
-dt = 0
-
-while True:
-
-    start_time = time.time()
-    
-    gyro = mpu.get_values()['GyX'], mpu.get_values()['GyY'], mpu.get_values()['GyZ']
-        
-    yaw += gyro[2] * dt * 0.001 - fix_yaw_offset #! 零漂误差参数
-    yaw_deg = yaw * 180 / math.pi
-    
-    #打印六轴加速度计原始值
-    # print(mpu.get_values())
-    print(yaw_deg)
-    
-
-    # time.sleep(0.02)
-
-    #判断有无收到信息
-    if uart.any():
-
-        text=uart.read(128) #接收128个字符
-        print(text) #通过REPL打印串口3接收的数据
-    
-    time.sleep(0.02)
-    
-    end_time = time.time()
-    dt = end_time - start_time
-    
+# 解包数据
+unpacked_data = struct.unpack("<BfffH", packet_with_checksum)
+print("解包后的数据:", unpacked_data)
